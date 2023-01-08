@@ -144,7 +144,7 @@ testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:,0]))
 print('Test Score: %.2f RMSE' % (testScore))
 ```
 
-Для обучающей выборки график:
+**Для обучающей выборки график:**
 ```python
 labels = ['History', 'True Future', 'Model Prediction']
 trainPredictPlot = numpy.empty_like(dataset)
@@ -154,10 +154,10 @@ plt.title("Обучающая выборка")
 plt.plot(trainPredictPlot)
 plt.show()
 ```
-Результат<br>
+**Результат:**<br>
 ![2023-01-08 (1)](https://user-images.githubusercontent.com/79097818/211195142-5e5c5027-3afb-4fbb-87e3-5422945e41dc.png)
 
-Тестовая выборка:
+**Тестовая выборка:**
 ```python
 testPredictPlot = numpy.empty_like(dataset)
 testPredictPlot[:, :] = numpy.nan
@@ -166,7 +166,7 @@ plt.plot(testPredictPlot)
 plt.title("Тестовая выборка")
 plt.show()
 ```
-Результат<br>
+**Результат:**<br>
 ![2023-01-08 (2)](https://user-images.githubusercontent.com/79097818/211195149-b157c8d0-febc-452f-9e11-1b7188d99c07.png)
 
 После подготовки данные выводятся на график, который показывает исходный набор данных синим цветом, прогнозы для набора обучающих данных зеленым цветом и прогнозы для набора невидимых тестовых данных красным цветом.
@@ -185,5 +185,5 @@ plt.plot(trainPredictPlot)
 plt.plot(testPredictPlot)
 plt.show()
 ```
-Результат<br>
+**Результат:**<br>
 ![2023-01-08 (3)](https://user-images.githubusercontent.com/79097818/211195159-0f3423b6-55c9-435e-982f-4ff5b5889b03.png)
