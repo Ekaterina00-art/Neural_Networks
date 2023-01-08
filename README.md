@@ -39,6 +39,10 @@
 с помощью которой можно обнаружить закономерности поведения ряда, а 
 также построить прогноз его дальнейшего развития.
 
+Проблемы прогнозирования временных рядов являются сложным типом задачи прогнозного моделирования.
+
+В отличие от прогнозного регрессионного моделирования, временной ряд также добавляет сложность зависимости последовательности между входными переменными.
+
 ## Анализ фондового рынка
 
 **Котировка** — цена (курс, процентная ставка) товара, которую объявляет 
@@ -89,3 +93,97 @@ OHLC – это сокращенное обозначение котировок
 * вывод и расчет ошибки на обучающих, тестовых (валидационных) данных; 
 * вывод результатов в файл (дата, спрогнозированное значение, реальное значение (если такое имеется для текущего прогноза), ошибка); 
 * вывод результатов на графиках (отдельно обучающая выборка, отдельно тестовая и обе на одном графике).
+
+Прежде чем мы начнем, сначала импортируем все функции и классы, которые собираемся использовать. Это предполагает рабочую среду SciPy с установленной библиотекой глубокого обучения Keras.
+
+LSTM чувствительны к масштабу входных данных, особенно когда используются функции активации сигмоида (по умолчанию) или tanh. Хорошей практикой может быть изменение масштаба данных до диапазона от 0 до 1, также называемого нормализацией. Мы можем легко нормализовать набор данных, используя MinMaxScaler класс предварительной обработки из библиотеки scikit-learn:
+```python
+scaler = MinMaxScaler(feature_range=(0, 1))
+dataset = scaler.fit_transform(dataset)
+dataset
+```
+После того, как мы смоделируем наши данные и оценим навыки нашей модели на обучающем наборе данных, нам нужно получить представление о навыках модели на новых невидимых данных.
+
+Для данных временных рядов важна последовательность значений. Поэтому мы вычисляем индекс точки разделения и делим данные на обучающие наборы данных с 67% наблюдений, которые мы можем использовать для обучения нашей модели, оставляя 33% для тестирования модели:
+```python
+train_size = int(len(dataset) * 0.67)
+test_size = len(dataset) - train_size
+train, test = dataset[0:train_size,:], dataset[train_size:len(dataset),:]
+print(len(train), len(test))
+```
+Сеть LSTM ожидает, что входные данные (X) будут снабжены определенной структурой массива в виде:[образцы, временные шаги, особенности],
+
+В настоящее время наши данные находятся в форме: [образцы, особенности] и мы формулируем проблему как один временной шаг для каждого образца. Мы можем преобразовать подготовленный поезд и проверить входные данные в ожидаемую структуру, используя numpy.reshape() следующее:
+```python
+trainX = numpy.reshape(trainX, (trainX.shape[0], 1, trainX.shape[1]))
+testX = numpy.reshape(testX, (testX.shape[0], 1, testX.shape[1]))
+```
+Теперь проектируем и приспособливаем нашу сеть LSTM.
+
+Сеть имеет видимый слой с 1 входом, скрытый слой с 4 блоками или нейронами LSTM и выходной слой, который делает прогноз одного значения. Функция активации сигмоида по умолчанию используется для блоков LSTM. Сеть обучена для 100 эпох, и используется размер партии 1.
+```python
+model = Sequential()
+model.add(LSTM(4, input_shape=(1, look_back)))
+model.add(Dense(1))
+model.compile(loss='mean_squared_error', optimizer='adam')
+model.fit(trainX, trainY, epochs=100, batch_size=1, verbose=2)
+```
+После того, как модель подобрана, мы можем оценить производительность модели в тестовых наборах данных. Это даст нам точку сравнения для новых моделей:
+```python
+trainPredict = model.predict(trainX)
+testPredict = model.predict(testX)
+# invert predictions
+trainPredict = scaler.inverse_transform(trainPredict)
+trainY = scaler.inverse_transform([trainY])
+testPredict = scaler.inverse_transform(testPredict)
+testY = scaler.inverse_transform([testY])
+#расчет ошибки на обучающих, тестовых (валидационных) данных
+trainScore = math.sqrt(mean_squared_error(trainY[0], trainPredict[:,0]))
+print('Train Score: %.2f RMSE' % (trainScore))
+testScore = math.sqrt(mean_squared_error(testY[0], testPredict[:,0]))
+print('Test Score: %.2f RMSE' % (testScore))
+```
+
+Для обучающей выборки график:
+```python
+labels = ['History', 'True Future', 'Model Prediction']
+trainPredictPlot = numpy.empty_like(dataset)
+trainPredictPlot[:, :] = numpy.nan
+trainPredictPlot[look_back:len(trainPredict)+look_back, :] = trainPredict
+plt.title("Обучающая выборка")
+plt.plot(trainPredictPlot)
+plt.show()
+```
+Результат
+![2023-01-08 (1)](https://user-images.githubusercontent.com/79097818/211195142-5e5c5027-3afb-4fbb-87e3-5422945e41dc.png)
+
+Тестовая выборка:
+```python
+testPredictPlot = numpy.empty_like(dataset)
+testPredictPlot[:, :] = numpy.nan
+testPredictPlot[len(trainPredict)+(look_back*2)+1:len(dataset)-1, :] = testPredict
+plt.plot(testPredictPlot)
+plt.title("Тестовая выборка")
+plt.show()
+```
+Результат
+![2023-01-08 (2)](https://user-images.githubusercontent.com/79097818/211195149-b157c8d0-febc-452f-9e11-1b7188d99c07.png)
+
+После подготовки данные выводятся на график, который показывает исходный набор данных синим цветом, прогнозы для набора обучающих данных зеленым цветом и прогнозы для набора невидимых тестовых данных красным цветом.
+```python
+labels = ['History', 'True Future', 'Model Prediction']
+trainPredictPlot = numpy.empty_like(dataset)
+trainPredictPlot[:, :] = numpy.nan
+trainPredictPlot[look_back:len(trainPredict)+look_back, :] = trainPredict
+# shift test predictions for plotting
+testPredictPlot = numpy.empty_like(dataset)
+testPredictPlot[:, :] = numpy.nan
+testPredictPlot[len(trainPredict)+(look_back*2)+1:len(dataset)-1, :] = testPredict
+# plot baseline and predictions
+plt.plot(scaler.inverse_transform(dataset))
+plt.plot(trainPredictPlot)
+plt.plot(testPredictPlot)
+plt.show()
+```
+Результат
+![2023-01-08 (3)](https://user-images.githubusercontent.com/79097818/211195159-0f3423b6-55c9-435e-982f-4ff5b5889b03.png)
